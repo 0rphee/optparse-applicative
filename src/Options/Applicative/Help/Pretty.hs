@@ -20,11 +20,18 @@ import           Data.Semigroup ((<>), mempty)
 #endif
 import qualified Data.Text.Lazy as Lazy
 
+import qualified Data.Text.Encoding as Strict
+
+import qualified Data.ByteString.Short as Short
+
 import           Prettyprinter hiding (Doc)
 import qualified Prettyprinter as PP
 import           Prettyprinter.Render.Terminal
 
 import           Prelude
+import System.OsString (OsString)
+import qualified System.OsString.Internal.Types as OsString
+import Data.Coerce (coerce)
 
 type Doc = PP.Doc AnsiStyle
 type SimpleDoc = SimpleDocStream AnsiStyle
@@ -109,15 +116,15 @@ renderPretty ribbonFraction lineWidth
   = layoutPretty LayoutOptions
       { layoutPageWidth = AvailablePerLine lineWidth ribbonFraction }
 
-prettyString :: Double -> Int -> Doc -> String
+prettyString :: Double -> Int -> Doc -> OsString
 prettyString ribbonFraction lineWidth
   = streamToString
   . renderPretty ribbonFraction lineWidth
 
-streamToString :: SimpleDocStream AnsiStyle -> String
+streamToString :: SimpleDocStream AnsiStyle -> OsString
 streamToString sdoc =
   let
     rendered =
       Prettyprinter.Render.Terminal.renderLazy sdoc
   in
-    Lazy.unpack rendered
+    coerce $ Short.toShort $ Strict.encodeUtf8 $ Lazy.toStrict rendered

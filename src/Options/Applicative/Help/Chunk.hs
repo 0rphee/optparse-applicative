@@ -21,6 +21,10 @@ import Data.Semigroup
 import Prelude
 
 import Options.Applicative.Help.Pretty
+import System.OsString (OsString)
+import qualified System.OsString as OsString
+import Data.Char (isSpace)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | The free monoid on a semigroup @a@.
 newtype Chunk a = Chunk
@@ -114,9 +118,10 @@ isEmpty = isNothing . unChunk
 --
 -- > isEmpty . stringChunk = null
 -- > extractChunk . stringChunk = string
-stringChunk :: String -> Chunk Doc
-stringChunk "" = mempty
-stringChunk s = pure (pretty s)
+stringChunk :: OsString -> Chunk Doc
+stringChunk s = if OsString.null s
+                then mempty
+                else pure (pretty (unsafePerformIO $ OsString.decodeUtf s))
 
 -- | Convert a paragraph into a 'Chunk'.  The resulting chunk is composed by the
 -- words of the original paragraph separated by softlines, so it will be
@@ -125,9 +130,9 @@ stringChunk s = pure (pretty s)
 -- This satisfies:
 --
 -- > isEmpty . paragraph = null . words
-paragraph :: String -> Chunk Doc
+paragraph :: OsString -> Chunk Doc
 paragraph = foldr (chunked (</>) . stringChunk) mempty
-          . words
+          . OsString.splitWith (isSpace . OsString.toChar)
 
 -- | Display pairs of strings in a table.
 tabulate :: Int -> [(Doc, Doc)] -> Chunk Doc

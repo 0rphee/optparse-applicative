@@ -1,4 +1,6 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Options.Applicative.Builder (
   -- * Parser builders
   --
@@ -112,7 +114,6 @@ import Control.Applicative
 #if __GLASGOW_HASKELL__ < 804
 import Data.Semigroup hiding (Option, option)
 #endif
-import Data.String (fromString, IsString)
 
 import Options.Applicative.Builder.Completer
 import Options.Applicative.Builder.Internal
@@ -122,19 +123,25 @@ import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
 import Options.Applicative.Internal (mapParserOptions)
 
+import qualified System.OsString as OsString
+import System.IO.Unsafe (unsafePerformIO)
+import System.OsString (OsString, osstr, OsChar)
+
 -- Readers --
 
 -- | 'Option' reader based on the 'Read' type class.
 auto :: Read a => ReadM a
-auto = eitherReader $ \arg -> case reads arg of
+auto = eitherReader $ \arg ->
+  let arg' = unsafePerformIO $ OsString.decodeUtf arg
+  in case reads arg'  of
   [(r, "")] -> return r
-  _         -> Left $ "cannot parse value `" ++ arg ++ "'"
+  _         -> Left $ [osstr|cannot parse value `|] <> arg <> [osstr|'|]
 
 -- | String 'Option' reader.
 --
 --   Polymorphic over the `IsString` type class since 0.14.
-str :: IsString s => ReadM s
-str = fromString <$> readerAsk
+str :: ReadM OsString
+str = readerAsk
 
 -- | Convert a function producing an 'Either' into a reader.
 --
@@ -145,27 +152,27 @@ str = fromString <$> readerAsk
 -- > import qualified Data.Text as T
 -- > attoparsecReader :: A.Parser a -> ReadM a
 -- > attoparsecReader p = eitherReader (A.parseOnly p . T.pack)
-eitherReader :: (String -> Either String a) -> ReadM a
+eitherReader :: (OsString -> Either OsString a) -> ReadM a
 eitherReader f = readerAsk >>= either readerError return . f
 
 -- | Convert a function producing a 'Maybe' into a reader.
-maybeReader :: (String -> Maybe a) -> ReadM a
+maybeReader :: (OsString -> Maybe a) -> ReadM a
 maybeReader f = do
   arg  <- readerAsk
-  maybe (readerError $ "cannot parse value `" ++ arg ++ "'") return . f $ arg
+  maybe (readerError $ [osstr|cannot parse value `|] <> arg <> [osstr|'|]) return . f $ arg
 
 -- | Null 'Option' reader. All arguments will fail validation.
 disabled :: ReadM a
-disabled = readerError "disabled option"
+disabled = readerError [osstr|disabled option|]
 
 -- modifiers --
 
 -- | Specify a short name for an option.
-short :: HasName f => Char -> Mod f a
+short :: HasName f => OsChar -> Mod f a
 short = fieldMod . name . OptShort
 
 -- | Specify a long name for an option.
-long :: HasName f => String -> Mod f a
+long :: HasName f => OsString -> Mod f a
 long = fieldMod . name . OptLong
 
 -- | Specify a default value for an option.
@@ -181,15 +188,15 @@ value :: HasValue f => a -> Mod f a
 value x = Mod id (DefaultProp (Just x) Nothing) id
 
 -- | Specify a function to show the default value for an option.
-showDefaultWith :: (a -> String) -> Mod f a
+showDefaultWith :: (a -> OsString) -> Mod f a
 showDefaultWith s = Mod id (DefaultProp Nothing (Just s)) id
 
 -- | Show the default value for this option using its 'Show' instance.
 showDefault :: Show a => Mod f a
-showDefault = showDefaultWith show
+showDefault = showDefaultWith (OsString.unsafeEncodeUtf . show)
 
 -- | Specify the help text for an option.
-help :: String -> Mod f a
+help :: OsString -> Mod f a
 help s = optionMod $ \p -> p { propHelp = paragraph s }
 
 -- | Specify the help text for an option as a 'Prettyprinter.Doc AnsiStyle'
@@ -205,7 +212,7 @@ noArgError e = fieldMod $ \p -> p { optNoArgError = const e }
 --
 -- Metavariables have no effect on the actual parser, and only serve to specify
 -- the symbolic name for an argument to be displayed in the help text.
-metavar :: HasMetavar f => String -> Mod f a
+metavar :: HasMetavar f => OsString -> Mod f a
 metavar var = optionMod $ \p -> p { propMetaVar = var }
 
 -- | Hide this option from the brief description.
@@ -240,7 +247,7 @@ style x = optionMod $ \p ->
 --          (info goodbye (progDesc "Say goodbye"))
 --        )
 -- @
-command :: String -> ParserInfo a -> Mod CommandFields a
+command :: OsString -> ParserInfo a -> Mod CommandFields a
 command cmd pinfo = fieldMod $ \p ->
   p { cmdCommands = (cmd, pinfo) : cmdCommands p }
 
@@ -250,19 +257,19 @@ command cmd pinfo = fieldMod $ \p ->
 --
 -- If using the same `metavar` for each group of commands, it may yield a more
 -- attractive usage text combined with `hidden` for some groups.
-commandGroup :: String -> Mod CommandFields a
+commandGroup :: OsString -> Mod CommandFields a
 commandGroup g = fieldMod $ \p ->
   p { cmdGroup = Just g }
 
 -- | Add a list of possible completion values.
-completeWith :: HasCompleter f => [String] -> Mod f a
+completeWith :: HasCompleter f => [OsString] -> Mod f a
 completeWith = completer . listCompleter
 
 -- | Add a bash completion action. Common actions include @file@ and
 -- @directory@. See
 -- <http://www.gnu.org/software/bash/manual/html_node/Programmable-Completion-Builtins.html#Programmable-Completion-Builtins>
 -- for a complete list.
-action :: HasCompleter f => String -> Mod f a
+action :: HasCompleter f => OsString -> Mod f a
 action = completer . bashCompleter
 
 -- | Add a completer to an argument.
@@ -284,7 +291,7 @@ completer f = fieldMod $ modCompleter (`mappend` f)
 subparser :: Mod CommandFields a -> Parser a
 subparser m = mkParser d g rdr
   where
-    Mod _ d g = metavar "COMMAND" `mappend` m
+    Mod _ d g = metavar [osstr|COMMAND|] `mappend` m
     (groupName, cmds) = mkCommand m
     rdr = CmdReader groupName cmds
 
@@ -297,7 +304,7 @@ argument p m = mkParser d g (ArgReader rdr)
     rdr = CReader compl p
 
 -- | Builder for a 'String' argument.
-strArgument :: IsString s => Mod ArgumentFields s -> Parser s
+strArgument :: Mod ArgumentFields OsString -> Parser OsString
 strArgument = argument str
 
 -- | Builder for a flag parser.
@@ -357,14 +364,14 @@ abortOption :: ParseError -> Mod OptionFields (a -> a) -> Parser (a -> a)
 abortOption err m = option (readerAbort err) . (`mappend` m) $ mconcat
   [ noArgError err
   , value id
-  , metavar "" ]
+  , metavar OsString.empty ]
 
 -- | An option that always fails and displays a message.
-infoOption :: String -> Mod OptionFields (a -> a) -> Parser (a -> a)
+infoOption :: OsString -> Mod OptionFields (a -> a) -> Parser (a -> a)
 infoOption = abortOption . InfoMsg
 
 -- | Builder for an option taking a 'String' argument.
-strOption :: IsString s => Mod OptionFields s -> Parser s
+strOption :: Mod OptionFields OsString -> Parser OsString
 strOption = option str
 
 -- | Builder for an option using the given reader.
@@ -377,7 +384,7 @@ strOption = option str
 option :: ReadM a -> Mod OptionFields a -> Parser a
 option r m = mkParser d g rdr
   where
-    Mod f d g = metavar "ARG" `mappend` m
+    Mod f d g = metavar [osstr|ARG|] `mappend` m
     fields = f (OptionFields [] mempty ExpectsArgError)
     crdr = CReader (optCompleter fields) r
     rdr = OptReader (optNames fields) crdr (optNoArgError fields)
@@ -395,13 +402,13 @@ option r m = mkParser d g rdr
 --  - Group Inner
 --    ...
 -- @
-optPropertiesGroup :: String -> OptProperties -> OptProperties
+optPropertiesGroup :: OsString -> OptProperties -> OptProperties
 optPropertiesGroup g o = o { propGroup = OptGroup (g : oldGroup) }
   where
     OptGroup oldGroup = propGroup o
 
 -- | Prepends a group per 'optPropertiesGroup'.
-optionGroup :: String -> Option a -> Option a
+optionGroup :: OsString -> Option a -> Option a
 optionGroup grp o = o { optProps = props' }
   where
     props' = optPropertiesGroup grp (optProps o)
@@ -429,7 +436,7 @@ optionGroup grp o = o { optProps = props' }
 -- >   <B options>
 --
 -- @since 0.19.0.0
-parserOptionGroup :: String -> Parser a -> Parser a
+parserOptionGroup :: OsString -> Parser a -> Parser a
 parserOptionGroup g = mapParserOptions (optionGroup g)
 
 -- | Modifier for 'ParserInfo'.
@@ -452,7 +459,7 @@ briefDesc :: InfoMod a
 briefDesc = InfoMod $ \i -> i { infoFullDesc = False }
 
 -- | Specify a header for this parser.
-header :: String -> InfoMod a
+header :: OsString -> InfoMod a
 header s = InfoMod $ \i -> i { infoHeader = paragraph s }
 
 -- | Specify a header for this parser as a 'Prettyprinter.Doc AnsiStyle'
@@ -461,7 +468,7 @@ headerDoc :: Maybe Doc -> InfoMod a
 headerDoc doc = InfoMod $ \i -> i { infoHeader = Chunk doc }
 
 -- | Specify a footer for this parser.
-footer :: String -> InfoMod a
+footer :: OsString -> InfoMod a
 footer s = InfoMod $ \i -> i { infoFooter = paragraph s }
 
 -- | Specify a footer for this parser as a 'Prettyprinter.Doc AnsiStyle'
@@ -470,7 +477,7 @@ footerDoc :: Maybe Doc -> InfoMod a
 footerDoc doc = InfoMod $ \i -> i { infoFooter = Chunk doc }
 
 -- | Specify a short program description.
-progDesc :: String -> InfoMod a
+progDesc :: OsString -> InfoMod a
 progDesc s = InfoMod $ \i -> i { infoProgDesc = paragraph s }
 
 -- | Specify a short program description as a 'Prettyprinter.Doc AnsiStyle'
@@ -532,7 +539,7 @@ instance Semigroup PrefsMod where
 
 -- | Include a suffix to attach to the metavar when multiple values
 --   can be entered.
-multiSuffix :: String -> PrefsMod
+multiSuffix :: OsString -> PrefsMod
 multiSuffix s = PrefsMod $ \p -> p { prefMultiSuffix = s }
 
 -- | Turn on disambiguation.
@@ -593,7 +600,7 @@ prefs :: PrefsMod -> ParserPrefs
 prefs m = applyPrefsMod m base
   where
     base = ParserPrefs
-      { prefMultiSuffix = ""
+      { prefMultiSuffix = OsString.empty
       , prefDisambiguate = False
       , prefShowHelpOnError = False
       , prefShowHelpOnEmpty = False
@@ -613,3 +620,4 @@ idm = mempty
 -- | Default preferences.
 defaultPrefs :: ParserPrefs
 defaultPrefs = prefs idm
+

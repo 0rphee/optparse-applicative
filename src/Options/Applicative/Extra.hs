@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Options.Applicative.Extra (
   -- * Extra parser utilities
   --
@@ -38,6 +39,12 @@ import Options.Applicative.Help
 
 import Options.Applicative.Internal
 import Options.Applicative.Types
+import qualified System.Process.Environment.OsString  as EOS
+import System.OsPath (OsPath)
+import System.OsString (osstr, OsString)
+import qualified System.OsString as OsString
+import qualified System.OsString.IO as OsString.IO
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | A hidden \"helper\" option which always fails.
 --
@@ -50,9 +57,9 @@ import Options.Applicative.Types
 helper :: Parser (a -> a)
 helper =
   helperWith (mconcat [
-    long "help",
-    short 'h',
-    help "Show this help text"
+    long [osstr|help|],
+    short $ OsString.unsafeFromChar 'h',
+    help [osstr|Show this help text|]
   ])
 
 -- | Like helper, but with a minimal set of modifiers that can be extended
@@ -70,7 +77,7 @@ helperWith modifiers =
   option helpReader $
     mconcat
       [ value id,
-        metavar "",
+        metavar OsString.empty,
         noGlobal,
         noArgError (ShowHelpText Nothing),
         hidden,
@@ -88,7 +95,7 @@ helperWith modifiers =
 hsubparser :: Mod CommandFields a -> Parser a
 hsubparser m = mkParser d g rdr
   where
-    Mod _ d g = metavar "COMMAND" `mappend` m
+    Mod _ d g = metavar [osstr|COMMAND|] `mappend` m
     (groupName, cmds) = mkCommand m
     rdr = CmdReader groupName ((fmap . fmap) add_helper cmds)
     add_helper pinfo = pinfo
@@ -98,12 +105,12 @@ hsubparser m = mkParser d g rdr
 --
 -- > opts :: ParserInfo Sample
 -- > opts = info (sample <**> simpleVersioner "v1.2.3") mempty
-simpleVersioner :: String -- ^ Version string to be shown
+simpleVersioner :: OsString -- ^ Version string to be shown
                 -> Parser (a -> a)
 simpleVersioner version = infoOption version $
   mconcat
-    [ long "version"
-    , help "Show version information"
+    [ long [osstr|version|]
+    , help [osstr|Show version information|]
     , hidden
     ]
 
@@ -117,22 +124,22 @@ execParser = customExecParser defaultPrefs
 -- | Run a program description with custom preferences.
 customExecParser :: ParserPrefs -> ParserInfo a -> IO a
 customExecParser pprefs pinfo
-  = execParserPure pprefs pinfo <$> getArgs
+  = execParserPure pprefs pinfo <$> EOS.getArgs
   >>= handleParseResult
 
 -- | Handle `ParserResult`.
 handleParseResult :: ParserResult a -> IO a
 handleParseResult (Success a) = return a
 handleParseResult (Failure failure) = do
-      progn <- getProgName
+      progn <- OsString.unsafeEncodeUtf <$> getProgName 
       let (msg, exit) = renderFailure failure progn
       case exit of
-        ExitSuccess -> putStrLn msg
-        _           -> hPutStrLn stderr msg
+        ExitSuccess -> OsString.IO.putStrLn msg
+        _           -> OsString.IO.hPutStrLn stderr msg
       exitWith exit
 handleParseResult (CompletionInvoked compl) = do
       progn <- getProgName
-      msg <- execCompletion compl progn
+      msg <- OsString.decodeUtf =<< execCompletion compl (OsString.unsafeEncodeUtf progn)
       putStr msg
       exitSuccess
 
@@ -150,7 +157,7 @@ getParseResult _ = Nothing
 -- | The most general way to run a program description in pure code.
 execParserPure :: ParserPrefs       -- ^ Global preferences for this parser
                -> ParserInfo a      -- ^ Description of the program to run
-               -> [String]          -- ^ Program arguments
+               -> [OsPath]          -- ^ Program arguments
                -> ParserResult a
 execParserPure pprefs pinfo args =
   case runP p pprefs of
@@ -204,7 +211,7 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
 
     with_context :: [Context]
                  -> ParserInfo a
-                 -> (forall b . [String] -> ParserInfo b -> c)
+                 -> (forall b . [OsString] -> ParserInfo b -> c)
                  -> c
     with_context [] i f = f [] i
     with_context c@(Context _ i:_) _ f = f (contextNames c) i
@@ -229,7 +236,7 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
         -> mempty
       _
         -> mconcat [
-            usageHelp (pure . parserUsage pprefs (infoParser i) . unwords $ progn : names)
+            usageHelp (pure . parserUsage pprefs (infoParser i) . (OsString.intercalate [osstr| |]) $ progn : names)
           , descriptionHelp (infoProgDesc i)
           ]
 
@@ -248,10 +255,10 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
         -> mempty
 
       MissingError _ (SomeParser x)
-        -> stringChunk "Missing:" <<+>> missingDesc pprefs x
+        -> stringChunk [osstr|Missing:|] <<+>> missingDesc pprefs x
 
       ExpectsArgError x
-        -> stringChunk $ "The option `" ++ x ++ "` expects an argument."
+        -> stringChunk $ [osstr|The option `|] <> x <> [osstr|` expects an argument.|]
 
       UnexpectedError arg _
         -> stringChunk msg'
@@ -259,9 +266,9 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
             --
             -- This gives us the same error we have always
             -- reported
-            msg' = case arg of
-              ('-':_) -> "Invalid option `" ++ arg ++ "'"
-              _       -> "Invalid argument `" ++ arg ++ "'"
+            msg' = case OsString.uncons arg of
+              Just (char,_) | OsString.unsafeFromChar '-' == char -> [osstr|Invalid option `|] <> arg <> [osstr|'|]
+              _       -> [osstr|Invalid argument `|] <> arg <> [osstr|'|]
 
       UnknownError
         -> mempty
@@ -289,9 +296,9 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
             -- We won't worry about the 0 case, it won't be
             -- shown anyway.
             prose       = if length good < 2 then
-                            stringChunk "Did you mean this?"
+                            stringChunk [osstr|Did you mean this?|]
                           else
-                            stringChunk "Did you mean one of these?"
+                            stringChunk [osstr|Did you mean one of these?|]
             --
             -- Suggestions we will show, they're close enough
             -- to what the user wrote
@@ -300,7 +307,8 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
             --
             -- Bit of an arbitrary decision here.
             -- Edit distances of 1 or 2 will give hints
-            isClose a   = editDistance a arg < 3
+            isClose :: OsString -> Bool
+            isClose a   = editDistance (unsafePerformIO . OsString.decodeUtf $ a) (unsafePerformIO . OsString.decodeUtf $ arg) < 3
 
             --
             -- Similar to how bash completion works.
@@ -341,7 +349,7 @@ parserFailure pprefs pinfo msg ctx0 = ParserFailure $ \progn ->
       InfoMsg _                -> False
       _                        -> prefShowHelpOnError pprefs
 
-renderFailure :: ParserFailure ParserHelp -> String -> (String, ExitCode)
+renderFailure :: ParserFailure ParserHelp -> OsString -> (OsString, ExitCode)
 renderFailure failure progn =
   let (h, exit, cols) = execFailure failure progn
   in (renderHelp cols h, exit)

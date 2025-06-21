@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 -- | You don't need to import this module to enable bash completion.
 --
 -- See
@@ -23,6 +24,8 @@ import Options.Applicative.Internal
 import Options.Applicative.Types
 import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
+import System.OsString (OsString, osstr)
+import qualified System.OsString as OsString
 
 -- | Provide basic or rich command completions
 data Richness
@@ -40,37 +43,37 @@ bashCompletionParser pinfo pprefs = complParser
   where
     returnCompletions opts =
       CompletionResult $
-        \progn -> unlines <$> opts progn
+        \progn -> foldMap (\s -> s <> OsString.singleton (OsString.unsafeFromChar '\n')) <$> opts progn
 
     scriptRequest =
       CompletionResult . fmap pure
 
     complParser = asum
       [ returnCompletions <$>
-        (  bashCompletionQuery pinfo pprefs
+        (  let a = bashCompletionQuery pinfo pprefs in a
         -- To get rich completions, one just needs the first
         -- command. To customise the lengths, use either of
         -- the `desc-length` options.
         -- zsh commands can go on a single line, so they might
         -- want to be longer.
-        <$> ( flag' Enriched (long "bash-completion-enriched" `mappend` internal)
-                <*> option auto (long "bash-completion-option-desc-length" `mappend` internal `mappend` value 40)
-                <*> option auto (long "bash-completion-command-desc-length" `mappend` internal `mappend` value 40)
+        <$> ( flag' Enriched (long [osstr|bash-completion-enriched|] `mappend` internal)
+                <*> option auto (long [osstr|bash-completion-option-desc-length|] `mappend` internal `mappend` value 40)
+                <*> option auto (long [osstr|bash-completion-command-desc-length|] `mappend` internal `mappend` value 40)
           <|> pure Standard
           )
-        <*> (many . strOption) (long "bash-completion-word"
+        <*> (many . strOption) (long [osstr|bash-completion-word|]
                                   `mappend` internal)
-        <*> option auto (long "bash-completion-index" `mappend` internal) )
+        <*> option auto (long [osstr|bash-completion-index|] `mappend` internal) )
 
       , scriptRequest . bashCompletionScript <$>
-            strOption (long "bash-completion-script" `mappend` internal)
+            strOption (long [osstr|bash-completion-script|] `mappend` internal)
       , scriptRequest . fishCompletionScript <$>
-            strOption (long "fish-completion-script" `mappend` internal)
+            strOption (long [osstr|fish-completion-script|] `mappend` internal)
       , scriptRequest . zshCompletionScript <$>
-            strOption (long "zsh-completion-script" `mappend` internal)
+            strOption (long [osstr|zsh-completion-script|] `mappend` internal)
       ]
 
-bashCompletionQuery :: ParserInfo a -> ParserPrefs -> Richness -> [String] -> Int -> String -> IO [String]
+bashCompletionQuery :: ParserInfo a -> ParserPrefs -> Richness -> [OsString] -> Int -> OsString -> IO [OsString]
 bashCompletionQuery pinfo pprefs richness ws i _ = case runCompletion compl pprefs of
   Just (Left (SomeParser p, a))
     -> list_options a p
@@ -121,18 +124,18 @@ bashCompletionQuery pinfo pprefs richness ws i _ = case runCompletion compl ppre
 
     -- When doing enriched completions, add any help specified
     -- to the completion variables (tab separated).
-    add_opt_help :: Functor f => Option a -> f String -> f String
+    add_opt_help :: Functor f => Option a -> f OsString -> f OsString
     add_opt_help opt = case richness of
       Standard ->
         id
       Enriched len _ ->
         fmap $ \o ->
           let h = unChunk $ optHelp opt
-          in  maybe o (\h' -> o ++ "\t" ++ render_line len h') h
+          in  maybe o (\h' -> o <> [osstr|\t|] <> render_line len h') h
 
     -- When doing enriched completions, add the command description
     -- to the completion variables (tab separated).
-    with_cmd_help :: Functor f => f (String, ParserInfo a) -> f String
+    with_cmd_help :: Functor f => f (OsString, ParserInfo a) -> f OsString
     with_cmd_help =
       case richness of
         Standard ->
@@ -140,48 +143,68 @@ bashCompletionQuery pinfo pprefs richness ws i _ = case runCompletion compl ppre
         Enriched _ len ->
           fmap $ \(cmd, cmdInfo) ->
             let h = unChunk (infoProgDesc cmdInfo)
-            in  maybe cmd (\h' -> cmd ++ "\t" ++ render_line len h') h
+            in  maybe cmd (\h' -> cmd <> OsString.singleton (OsString.unsafeFromChar '\t') <> render_line len h') h
 
-    show_names :: [OptName] -> [String]
+    show_names :: [OptName] -> [OsString]
     show_names = filter is_completion . map showOption
 
     -- We only want to show a single line in the completion results description.
     -- If there was a line break, it would come across as a different completion
     -- possibility.
-    render_line :: Int -> Doc -> String
-    render_line len doc = case lines (prettyString 1 len doc) of
-      [] -> ""
+    render_line :: Int -> Doc -> OsString
+    render_line len doc = case OsString.split (OsString.unsafeFromChar '\n') (prettyString 1 len doc) of
+      [] -> OsString.empty
       [x] -> x
-      x : _ -> x ++ "..."
+      x : _ -> x <> [osstr|...|]
 
-    run_completer :: Completer -> IO [String]
-    run_completer c = runCompleter c (fromMaybe "" (listToMaybe ws''))
+    run_completer :: Completer -> IO [OsString]
+    run_completer c = runCompleter c (fromMaybe OsString.empty (listToMaybe ws''))
 
     (ws', ws'') = splitAt i ws
 
-    is_completion :: String -> Bool
+    is_completion :: OsString -> Bool
     is_completion =
       case ws'' of
-        w:_ -> isPrefixOf w
+        w:_ -> OsString.isPrefixOf w
         _ -> const True
 
 -- | Generated bash shell completion script
-bashCompletionScript :: String -> String -> String
-bashCompletionScript prog progn = unlines
-  [ "_" ++ progn ++ "()"
-  , "{"
-  , "    local CMDLINE"
-  , "    local IFS=$'\\n'"
-  , "    CMDLINE=(--bash-completion-index $COMP_CWORD)"
-  , ""
-  , "    for arg in ${COMP_WORDS[@]}; do"
-  , "        CMDLINE=(${CMDLINE[@]} --bash-completion-word $arg)"
-  , "    done"
-  , ""
-  , "    COMPREPLY=( $(" ++ prog ++ " \"${CMDLINE[@]}\") )"
-  , "}"
-  , ""
-  , "complete -o filenames -F _" ++ progn ++ " " ++ progn ]
+bashCompletionScript :: OsString -> OsString -> OsString
+bashCompletionScript prog progn = mconcat
+  [[osstr|_|]
+  ,  progn
+  ,  [osstr|()|]
+  , [osstr|
+    {
+      local CMDLINE
+      local IFS=$'\\n'
+      CMDLINE=(--bash-completion-index $COMP_CWORD)
+  
+      for arg in ${COMP_WORDS[@]}; do
+          CMDLINE=(${CMDLINE[@]} --bash-completion-word $arg)
+      done
+  
+  |]
+  , [osstr|COMPREPLY=( $("|], prog, [osstr|" \"${CMDLINE[@]}\") )
+  }|]
+  , [osstr|complete -o filenames -F _|], progn, [osstr| |], progn
+  ]
+
+-- bashCompletionScript2 prog progn = unlines
+--   [ "_" ++ progn ++ "()"
+--   , "{"
+--   , "    local CMDLINE"
+--   , "    local IFS=$'\\n'"
+--   , "    CMDLINE=(--bash-completion-index $COMP_CWORD)"
+--   , ""
+--   , "    for arg in ${COMP_WORDS[@]}; do"
+--   , "        CMDLINE=(${CMDLINE[@]} --bash-completion-word $arg)"
+--   , "    done"
+--   , ""
+--   , "    COMPREPLY=( $(" ++ prog ++ " \"${CMDLINE[@]}\") )"
+--   , "}"
+--   , ""
+--   , "complete -o filenames -F _" ++ progn ++ " " ++ progn ]
 
 {-
 /Note/: Fish Shell
@@ -203,62 +226,65 @@ Tab characters separate items from descriptions.
 -}
 
 -- | Generated fish shell completion script 
-fishCompletionScript :: String -> String -> String
-fishCompletionScript prog progn = unlines
-  [ " function _" ++ progn
-  , "    set -l cl (commandline --tokenize --current-process)"
-  , "    # Hack around fish issue #3934"
-  , "    set -l cn (commandline --tokenize --cut-at-cursor --current-process)"
-  , "    set -l cn (count $cn)"
-  , "    set -l tmpline --bash-completion-enriched --bash-completion-index $cn"
-  , "    for arg in $cl"
-  , "      set tmpline $tmpline --bash-completion-word $arg"
-  , "    end"
-  , "    for opt in (" ++ prog ++ " $tmpline)"
-  , "      if test -d $opt"
-  , "        echo -E \"$opt/\""
-  , "      else"
-  , "        echo -E \"$opt\""
-  , "      end"
-  , "    end"
-  , "end"
-  , ""
-  , "complete --no-files --command " ++ progn ++ " --arguments '(_"  ++ progn ++  ")'"
+fishCompletionScript :: OsString -> OsString -> OsString
+fishCompletionScript prog progn = mconcat
+  [ [osstr| function _|], progn
+  , [osstr|
+        set -l cl (commandline --tokenize --current-process)
+        # Hack around fish issue #3934
+        set -l cn (commandline --tokenize --cut-at-cursor --current-process)
+        set -l cn (count $cn)
+        set -l tmpline --bash-completion-enriched --bash-completion-index $cn
+        for arg in $cl
+          set tmpline $tmpline --bash-completion-word $arg
+        end
+   
+       for opt in (|],  prog, [osstr| $tmpline)
+           if test -d $opt
+             echo -E \"$opt/\"
+           else
+             echo -E \"$opt\"
+           end
+         end
+     end
+     
+     complete --no-files --command |], progn, [osstr| --arguments '(_|], progn,  [osstr|)'|]
   ]
 
 -- | Generated zsh shell completion script
-zshCompletionScript :: String -> String -> String
-zshCompletionScript prog progn = unlines
-  [ "#compdef " ++ progn
-  , ""
-  , "local request"
-  , "local completions"
-  , "local word"
-  , "local index=$((CURRENT - 1))"
-  , ""
-  , "request=(--bash-completion-enriched --bash-completion-index $index)"
-  , "for arg in ${words[@]}; do"
-  , "  request=(${request[@]} --bash-completion-word $arg)"
-  , "done"
-  , ""
-  , "IFS=$'\\n' completions=($( " ++ prog ++ " \"${request[@]}\" ))"
-  , ""
-  , "for word in $completions; do"
-  , "  local -a parts"
-  , ""
-  , "  # Split the line at a tab if there is one."
-  , "  IFS=$'\\t' parts=($( echo $word ))"
-  , ""
-  , "  if [[ -n $parts[2] ]]; then"
-  , "     if [[ $word[1] == \"-\" ]]; then"
-  , "       local desc=(\"$parts[1] ($parts[2])\")"
-  , "       compadd -d desc -- $parts[1]"
-  , "     else"
-  , "       local desc=($(print -f  \"%-019s -- %s\" $parts[1] $parts[2]))"
-  , "       compadd -l -d desc -- $parts[1]"
-  , "     fi"
-  , "  else"
-  , "    compadd -f -- $word"
-  , "  fi"
-  , "done"
+zshCompletionScript :: OsString -> OsString -> OsString
+zshCompletionScript prog progn = mconcat
+  [ [osstr|#compdef |], progn, [osstr|
+     
+     local request
+     local completions
+     local word
+     local index=$((CURRENT - 1))
+     
+     request=(--bash-completion-enriched --bash-completion-index $index)
+     for arg in ${words[@]}; do
+       request=(${request[@]} --bash-completion-word $arg)
+     done
+     
+     IFS=$'\\n' completions=($( |], prog, [osstr| \"${request[@]}\" ))
+
+     for word in $completions; do
+       local -a parts
+     
+       # Split the line at a tab if there is one.
+       IFS=$'\\t' parts=($( echo $word ))
+     
+       if [[ -n $parts[2] ]]; then
+          if [[ $word[1] == \"-\" ]]; then
+            local desc=(\"$parts[1] ($parts[2])\")
+            compadd -d desc -- $parts[1]
+          else
+            local desc=($(print -f  \"%-019s -- %s\" $parts[1] $parts[2]))
+            compadd -l -d desc -- $parts[1]
+          fi
+       else
+         compadd -f -- $word
+       fi
+     done
+  |]
   ]

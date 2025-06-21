@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Options.Applicative.Builder.Completer
   ( Completer
@@ -19,15 +20,18 @@ import System.Process (readProcess)
 #endif
 
 import Options.Applicative.Types
+import qualified System.OsString as OsString
+import System.OsString (OsString, osstr)
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | Create a 'Completer' from an IO action
-listIOCompleter :: IO [String] -> Completer
+listIOCompleter :: IO [OsString] -> Completer
 listIOCompleter ss = Completer $ \s ->
-  filter (isPrefixOf s) <$> ss
+  filter (OsString.isPrefixOf s) <$> ss
 
 -- | Create a 'Completer' from a constant
 -- list of strings.
-listCompleter :: [String] -> Completer
+listCompleter :: [OsString] -> Completer
 listCompleter = listIOCompleter . pure
 
 -- | Run a compgen completion action.
@@ -36,12 +40,12 @@ listCompleter = listIOCompleter . pure
 -- @directory@. See
 -- <http://www.gnu.org/software/bash/manual/html_node/Programmable-Completion-Builtins.html#Programmable-Completion-Builtins>
 -- for a complete list.
-bashCompleter :: String -> Completer
+bashCompleter :: OsString -> Completer
 #ifdef MIN_VERSION_process
 bashCompleter action = Completer $ \word -> do
-  let cmd = unwords ["compgen", "-A", action, "--", requote word]
+  cmd <- OsString.decodeUtf $  OsString.intercalate [osstr| |] [[osstr|compgen|], [osstr|-A|], action, [osstr|--|], requote word]
   result <- tryIO $ readProcess "bash" ["-c", cmd] ""
-  return . lines . either (const []) id $ result
+  return . (OsString.split $ OsString.unsafeFromChar '\n') . either (const OsString.empty) (OsString.unsafeEncodeUtf) $ result
 #else
 bashCompleter = const $ Completer $ const $ return []
 #endif
@@ -54,15 +58,16 @@ tryIO = try
 -- We need to do this so bash doesn't expand out any ~ or other
 -- chars we want to complete on, or emit an end of line error
 -- when seeking the close to the quote.
-requote :: String -> String
+requote :: OsString -> OsString
 requote s =
   let
     -- Bash doesn't appear to allow "mixed" escaping
     -- in bash completions. So we don't have to really
     -- worry about people swapping between strong and
     -- weak quotes.
+    
     unescaped =
-      case s of
+      case unsafePerformIO $ OsString.decodeUtf s of
         -- It's already strongly quoted, so we
         -- can use it mostly as is, but we must
         -- ensure it's closed off at the end and
@@ -78,7 +83,7 @@ requote s =
         -- spaces and quotation marks.
         elsewise   -> unescapeU elsewise
   in
-    strong unescaped
+   OsString.unsafeEncodeUtf $ strong unescaped
 
   where
     strong ss = '\'' : foldr go "'" ss

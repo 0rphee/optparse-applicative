@@ -75,10 +75,11 @@ source-repository head
   type:     git
   location: https://github.com/pcapriotti/optparse-applicative.git
 
-flag process
-  description:
-    Depend on the process package for Bash autocompletion
+flag os-string
   default: True
+  manual: False
+  description:
+    Whether to use os-string instead of filepath as the origin of OsString.
 
 library
   hs-source-dirs:      src
@@ -114,9 +115,16 @@ library
                      , transformers                    >= 0.5   && < 0.7
                      , prettyprinter                   >= 1.7   && < 1.8
                      , prettyprinter-ansi-terminal     >= 1.1.2 && < 1.2
-
-  if flag(process)
-    build-depends:     process                         >= 1.0   && < 1.7
+                     , process                         >= 1.6.26   && < 1.7
+                     , bytestring
+  if flag(os-string)
+    build-depends:
+                       os-string                       >= 2.0.0
+                     , filepath                        >  1.5
+                     , os-string-io
+  else
+    build-depends:
+                      filepath                         >= 1.4.100 &&  < 1.5
 
   if !impl(ghc >= 8)
     build-depends:     semigroups                      >= 0.10  && < 0.21

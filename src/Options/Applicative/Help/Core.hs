@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Options.Applicative.Help.Core (
   cmdDesc,
   briefDesc,
@@ -35,6 +36,9 @@ import Options.Applicative.Common
 import Options.Applicative.Types
 import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
+import System.OsString (OsString, osstr)
+import qualified System.OsString as OsString
+import System.IO.Unsafe (unsafePerformIO)
 
 -- | Style for rendering an option.
 data OptDescStyle
@@ -56,12 +60,12 @@ optDesc pprefs style _reachability opt =
         stringChunk $ optMetaVar opt
       grp = propGroup $ optProps opt
       descs =
-        map (pretty . showOption) names
+        map (pretty . unsafePerformIO . OsString.decodeUtf . showOption) names
       descriptions =
         listToChunk (List.intersperse (descSep style) descs)
       desc
         | prefHelpLongEquals pprefs && not (isEmpty meta) && any isLongName (safelast names) =
-          descriptions <> stringChunk "=" <> meta
+          descriptions <> stringChunk [osstr|=|] <> meta
         | otherwise =
           descriptions <<+>> meta
       show_opt
@@ -88,7 +92,7 @@ optDesc pprefs style _reachability opt =
    in (grp, modified, wrapping)
 
 -- | Generate descriptions for commands.
-cmdDesc :: ParserPrefs -> Parser a -> [(Maybe String, Chunk Doc)]
+cmdDesc :: ParserPrefs -> Parser a -> [(Maybe OsString, Chunk Doc)]
 cmdDesc pprefs = mapParser desc
   where
     desc _ opt =
@@ -96,7 +100,7 @@ cmdDesc pprefs = mapParser desc
         CmdReader gn cmds ->
           (,) gn $
             tabulate (prefTabulateFill pprefs)
-              [ (pretty nm, align (extractChunk (infoProgDesc cmd)))
+              [ (pretty . unsafePerformIO . OsString.decodeUtf $ nm, align (extractChunk (infoProgDesc cmd)))
               | (nm, cmd) <- reverse cmds
               ]
         _ -> mempty
@@ -263,11 +267,11 @@ optionsDesc global pprefs p =
     formatTitle' :: [(OptGroup, Chunk Doc)] -> [Chunk Doc]
     formatTitle' = reverse . snd . foldl' formatTitle ([], [])
 
-    formatTitle :: ([String], [Chunk Doc]) -> (OptGroup, Chunk Doc) -> ([String], [Chunk Doc])
+    formatTitle :: ([OsString], [Chunk Doc]) -> (OptGroup, Chunk Doc) -> ([OsString], [Chunk Doc])
     formatTitle (printedGroups, acc) o@(OptGroup groups, opts) =
       case parentGroups of
         -- No nested groups: No special logic.
-        [] -> (groupTitle : printedGroups, ((\d -> pretty groupTitle .$. d) <$> opts) : acc)
+        [] -> (groupTitle : printedGroups, ((\d -> (pretty . unsafePerformIO $ OsString.decodeUtf groupTitle) .$. d) <$> opts) : acc)
         -- We have at least one parent group title P for current group G: P has
         -- already been printed iff it is attached to another (non-grouped)
         -- option. In other words, P has __not__ been printed if its only
@@ -305,8 +309,8 @@ optionsDesc global pprefs p =
 
         defTitle =
           if global
-            then "Global options:"
-            else "Available options:"
+            then [osstr|Global options:|]
+            else [osstr|Available options:|]
 
     maxGroupLevel :: Int
     maxGroupLevel = findMaxGroupLevel docs
@@ -330,7 +334,7 @@ optionsDesc global pprefs p =
         (grp, n, _) = optDesc pprefs style info opt
         h = optHelp opt
         hdef = Chunk . fmap show_def . optShowDefault $ opt
-        show_def s = parens (pretty "default:" <+> pretty s)
+        show_def s = parens (pretty "default:" <+> pretty (unsafePerformIO $ OsString.decodeUtf  s))
     style = OptDescStyle
       { descSep = pretty ',',
         descHidden = True,
@@ -340,17 +344,17 @@ optionsDesc global pprefs p =
     --
     -- Prints all parent titles that have not already been printed
     -- (i.e. in printedGroups).
-    mkParentDocs :: [String] -> [(Int, String)] -> Doc
+    mkParentDocs :: [OsString] -> [(Int, OsString)] -> Doc
     mkParentDocs printedGroups =
         foldr g mempty
       where
-        g :: (Int, String) -> Doc ->  Doc
+        g :: (Int, OsString) -> Doc ->  Doc
         g (i, s) acc
           | s `List.elem` printedGroups = acc
-          | i == 0 = pretty s .$. acc
+          | i == 0 = pretty (unsafePerformIO $ OsString.decodeUtf s) .$. acc
           | otherwise = lvlIndentNSub1 i $ hyphenate s .$. acc
 
-    hyphenate s = pretty ("- " <> s)
+    hyphenate s = pretty. unsafePerformIO $ OsString.decodeUtf  ([osstr|- |] <> s)
 
     lvlIndentNSub1 :: Int -> Doc -> Doc
     lvlIndentNSub1 n = indent (lvlIndent * (n - 1))
@@ -389,7 +393,7 @@ parserHelp pprefs p =
     fullDesc pprefs p
       : (group_title <$> cs)
   where
-    def = "Available commands:"
+    def = [osstr|Available commands:|]
     cs = groupFstAll $ cmdDesc pprefs p
 
     group_title a@((n, _) : _) =
@@ -397,8 +401,8 @@ parserHelp pprefs p =
         vcatChunks (snd <$> a)
     group_title _ = mempty
 
-    with_title :: String -> Chunk Doc -> Chunk Doc
-    with_title title = fmap (pretty title .$.)
+    with_title :: OsString -> Chunk Doc -> Chunk Doc
+    with_title title = fmap (pretty (unsafePerformIO $ OsString.decodeUtf title) .$.)
 
 
 parserGlobals :: ParserPrefs -> Parser a -> ParserHelp
@@ -408,12 +412,12 @@ parserGlobals pprefs p =
 
 
 -- | Generate option summary.
-parserUsage :: ParserPrefs -> Parser a -> String -> Doc
+parserUsage :: ParserPrefs -> Parser a -> OsString -> Doc
 parserUsage pprefs p progn =
   group $
     hsep
       [ pretty "Usage:",
-        pretty progn,
+        pretty (unsafePerformIO $ OsString.decodeUtf progn),
         hangAtIfOver 9 (prefBriefHangPoint pprefs) (extractChunk (briefDesc pprefs p))
       ]
 

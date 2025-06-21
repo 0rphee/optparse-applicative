@@ -8,6 +8,9 @@ import Prelude
 
 import Options.Applicative.Help.Chunk
 import Options.Applicative.Help.Pretty
+import System.OsString (OsString)
+import System.IO.Unsafe (unsafePerformIO)
+import qualified System.OsString as OsString
 
 data ParserHelp = ParserHelp
   { helpError :: Chunk Doc
@@ -21,7 +24,7 @@ data ParserHelp = ParserHelp
   }
 
 instance Show ParserHelp where
-  showsPrec _ h = showString (renderHelp 80 h)
+  showsPrec _ h = showString . unsafePerformIO  $ OsString.decodeUtf (renderHelp 80 h)
 
 instance Monoid ParserHelp where
   mempty = ParserHelp mempty mempty mempty mempty mempty mempty mempty mempty
@@ -40,7 +43,7 @@ helpText (ParserHelp e s h u d b g f) =
     vsepChunks [e, s, h, u, fmap (indent 2) d, b, g, f]
 
 -- | Convert a help text to 'String'.
-renderHelp :: Int -> ParserHelp -> String
+renderHelp :: Int -> ParserHelp -> OsString
 renderHelp cols
   = prettyString 1.0 cols
   . helpText
