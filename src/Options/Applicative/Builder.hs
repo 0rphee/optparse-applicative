@@ -130,6 +130,8 @@ import System.OsString (OsString, osstr, OsChar)
 -- Readers --
 
 -- | 'Option' reader based on the 'Read' type class.
+-- IMPORTANT: previously worked with 'Read String', but 'Read OsString'
+-- doesn't exists, so it won't work if the type is changed.
 auto :: Read a => ReadM a
 auto = eitherReader $ \arg ->
   let arg' = unsafePerformIO $ OsString.decodeUtf arg

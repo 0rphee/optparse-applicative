@@ -1,10 +1,15 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Examples.ParserGroup.DuplicateCommandGroups (opts, main) where
 
 import Data.Semigroup ((<>))
 import Options.Applicative
+
+import System.OsString (OsString, osstr)
+import qualified System.OsString as OsString
+import qualified System.OsString.IO as OIO
 
 -- This test demonstrates that duplicate + consecutive groups are merged,
 -- while duplicate + non-consecutive groups are not merged.
@@ -18,7 +23,7 @@ data Command
   deriving (Show)
 
 data Sample = Sample
-  { hello :: String,
+  { hello :: OsString,
     quiet :: Bool,
     verbosity :: Int,
     cmd :: Command
@@ -36,45 +41,45 @@ sample =
   where
     parseHello =
       strOption
-        ( long "hello"
-            <> metavar "TARGET"
-            <> help "Target for the greeting"
+        ( long [osstr|hello|]
+            <> metavar [osstr|TARGET|]
+            <> help [osstr|Target for the greeting|]
         )
 
     parseQuiet =
       switch
-        ( long "quiet"
-            <> short 'q'
-            <> help "Whether to be quiet"
+        ( long [osstr|quiet|]
+            <> short (OsString.unsafeFromChar 'q')
+            <> help [osstr|Whether to be quiet|]
         )
 
     parseVerbosity =
       option
         auto
-        ( long "verbosity"
-            <> short 'v'
-            <> help "Console verbosity"
+        ( long [osstr|verbosity|]
+            <> short (OsString.unsafeFromChar 'v')
+            <> help [osstr|Console verbosity|]
         )
 
     parseCommand =
       hsubparser
-        ( command "list" (info (pure List) $ progDesc "Lists elements")
-            <> commandGroup "Info commands"
+        ( command [osstr|list|] (info (pure List) $ progDesc [osstr|Lists elements|])
+            <> commandGroup [osstr|Info commands|]
         )
         <|> hsubparser
-          ( command "delete" (info (pure Delete) $ progDesc "Deletes elements")
-              <> commandGroup "Update commands"
+          ( command [osstr|delete|] (info (pure Delete) $ progDesc [osstr|Deletes elements|])
+              <> commandGroup [osstr|Update commands|]
           )
         <|> hsubparser
-          ( command "insert" (info (pure Insert) $ progDesc "Inserts elements")
-              <> commandGroup "Update commands"
+          ( command [osstr|insert|] (info (pure Insert) $ progDesc [osstr|Inserts elements|])
+              <> commandGroup [osstr|Update commands|]
           )
         <|> hsubparser
-          ( command "query" (info (pure Query) $ progDesc "Runs a query")
+          ( command [osstr|query|] (info (pure Query) $ progDesc [osstr|Runs a query|])
           )
         <|> hsubparser
-        ( command "print" (info (pure Print) $ progDesc "Prints table")
-            <> commandGroup "Info commands"
+        ( command [osstr|print|] (info (pure Print) $ progDesc [osstr|Prints table|])
+            <> commandGroup [osstr|Info commands|]
         )
 
 opts :: ParserInfo Sample
@@ -82,8 +87,8 @@ opts =
   info
     (sample <**> helper)
     ( fullDesc
-        <> progDesc "Duplicate consecutive command groups consolidated"
-        <> header "parser_group.duplicate_command_groups - a test for optparse-applicative"
+        <> progDesc [osstr|Duplicate consecutive command groups consolidated|]
+        <> header [osstr|parser_group.duplicate_command_groups - a test for optparse-applicative|]
     )
 
 main :: IO ()

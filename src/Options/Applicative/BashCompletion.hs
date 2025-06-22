@@ -14,8 +14,6 @@ module Options.Applicative.BashCompletion
 
 import Control.Applicative
 import Prelude
-import Data.Foldable ( asum )
-import Data.List ( isPrefixOf )
 import Data.Maybe ( fromMaybe, listToMaybe )
 
 import Options.Applicative.Builder
@@ -43,7 +41,7 @@ bashCompletionParser pinfo pprefs = complParser
   where
     returnCompletions opts =
       CompletionResult $
-        \progn -> foldMap (\s -> s <> OsString.singleton (OsString.unsafeFromChar '\n')) <$> opts progn
+        \progn -> foldMap (\s -> s `OsString.snoc` OsString.unsafeFromChar '\n') <$> opts progn
 
     scriptRequest =
       CompletionResult . fmap pure
@@ -143,7 +141,7 @@ bashCompletionQuery pinfo pprefs richness ws i _ = case runCompletion compl ppre
         Enriched _ len ->
           fmap $ \(cmd, cmdInfo) ->
             let h = unChunk (infoProgDesc cmdInfo)
-            in  maybe cmd (\h' -> cmd <> OsString.singleton (OsString.unsafeFromChar '\t') <> render_line len h') h
+            in  maybe cmd (\h' -> (cmd `OsString.snoc` OsString.unsafeFromChar '\t') <> render_line len h') h
 
     show_names :: [OptName] -> [OsString]
     show_names = filter is_completion . map showOption
@@ -171,23 +169,21 @@ bashCompletionQuery pinfo pprefs richness ws i _ = case runCompletion compl ppre
 -- | Generated bash shell completion script
 bashCompletionScript :: OsString -> OsString -> OsString
 bashCompletionScript prog progn = mconcat
-  [[osstr|_|]
-  ,  progn
-  ,  [osstr|()|]
+  [[osstr|_|] , progn , [osstr|()|]
   , [osstr|
     {
       local CMDLINE
-      local IFS=$'\\n'
+      local IFS=$'\n'
       CMDLINE=(--bash-completion-index $COMP_CWORD)
   
       for arg in ${COMP_WORDS[@]}; do
           CMDLINE=(${CMDLINE[@]} --bash-completion-word $arg)
       done
   
-  |]
-  , [osstr|COMPREPLY=( $("|], prog, [osstr|" \"${CMDLINE[@]}\") )
-  }|]
-  , [osstr|complete -o filenames -F _|], progn, [osstr| |], progn
+      COMPREPLY=( $(|], prog, [osstr| "${CMDLINE[@]}") )
+    }
+
+    complete -o filenames -F _|], progn, [osstr| |], progn
   ]
 
 -- bashCompletionScript2 prog progn = unlines
@@ -241,9 +237,9 @@ fishCompletionScript prog progn = mconcat
    
        for opt in (|],  prog, [osstr| $tmpline)
            if test -d $opt
-             echo -E \"$opt/\"
+             echo -E "$opt/"
            else
-             echo -E \"$opt\"
+             echo -E "$opt"
            end
          end
      end
@@ -266,20 +262,20 @@ zshCompletionScript prog progn = mconcat
        request=(${request[@]} --bash-completion-word $arg)
      done
      
-     IFS=$'\\n' completions=($( |], prog, [osstr| \"${request[@]}\" ))
+     IFS=$'\n' completions=($( |], prog, [osstr| "${request[@]}" ))
 
      for word in $completions; do
        local -a parts
      
        # Split the line at a tab if there is one.
-       IFS=$'\\t' parts=($( echo $word ))
+       IFS=$'\t' parts=($( echo $word ))
      
        if [[ -n $parts[2] ]]; then
-          if [[ $word[1] == \"-\" ]]; then
-            local desc=(\"$parts[1] ($parts[2])\")
+          if [[ $word[1] == "-" ]]; then
+            local desc=("$parts[1] ($parts[2])")
             compadd -d desc -- $parts[1]
           else
-            local desc=($(print -f  \"%-019s -- %s\" $parts[1] $parts[2]))
+            local desc=($(print -f  "%-019s -- %s" $parts[1] $parts[2]))
             compadd -l -d desc -- $parts[1]
           fi
        else

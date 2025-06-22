@@ -1,9 +1,13 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Examples.ParserGroup.Duplicates (opts, main) where
 
 import Data.Semigroup ((<>))
 import Options.Applicative
+
+import System.OsString (OsString, osstr)
+import qualified System.OsString as OsString
 
 -- NOTE: This is the same structure as ParserGroup.Basic __except__
 -- we have two (non-consecutive) "Logging" groups and two (consecutive)
@@ -16,13 +20,13 @@ import Options.Applicative
 -- This is like command groups.
 
 data LogGroup1 = LogGroup1
-  { logPath :: Maybe String,
+  { logPath :: Maybe OsString,
     logVerbosity :: Maybe Int
   }
   deriving (Show)
 
 data LogGroup2 = LogGroup2
-  { logNamespace :: String
+  { logNamespace :: OsString
   }
   deriving (Show)
 
@@ -38,14 +42,14 @@ newtype SystemGroup2 = SystemGroup2
   deriving (Show)
 
 data Sample = Sample
-  { hello :: String,
+  { hello :: OsString,
     logGroup1 :: LogGroup1,
     quiet :: Bool,
     systemGroup1 :: SystemGroup1,
     systemGroup2 :: SystemGroup2,
     logGroup2 :: LogGroup2,
     verbosity :: Int,
-    cmd :: String
+    cmd :: OsString
   }
   deriving (Show)
 
@@ -64,86 +68,86 @@ sample =
   where
     parseHello =
       strOption
-        ( long "hello"
-            <> metavar "TARGET"
-            <> help "Target for the greeting"
+        ( long [osstr|hello|]
+            <> metavar [osstr|TARGET|]
+            <> help [osstr|Target for the greeting|]
         )
 
     parseLogGroup1 =
-      parserOptionGroup "Logging" $
+      parserOptionGroup [osstr|Logging|] $
         LogGroup1
           <$> optional
             ( strOption
-                ( long "file-log-path"
-                    <> metavar "PATH"
-                    <> help "Log file path"
+                ( long [osstr|file-log-path|]
+                    <> metavar [osstr|PATH|]
+                    <> help [osstr|Log file path|]
                 )
             )
           <*> optional
             ( option
                 auto
-                ( long "file-log-verbosity"
-                    <> metavar "INT"
-                    <> help "File log verbosity"
+                ( long [osstr|file-log-verbosity|]
+                    <> metavar [osstr|INT|]
+                    <> help [osstr|File log verbosity|]
                 )
             )
 
     parseQuiet =
       switch
-        ( long "quiet"
-            <> short 'q'
-            <> help "Whether to be quiet"
+        ( long [osstr|quiet|]
+            <> short (OsString.unsafeFromChar 'q')
+            <> help [osstr|Whether to be quiet|]
         )
 
     parseSystemGroup1 =
-      parserOptionGroup "System" $
+      parserOptionGroup [osstr|System|] $
         SystemGroup1
           <$> switch
-            ( long "poll"
-                <> help "Whether to poll"
+            ( long [osstr|poll|]
+                <> help [osstr|Whether to poll|]
             )
           <*> option
                 auto
-                ( long "timeout"
-                    <> metavar "INT"
-                    <> help "Whether to time out"
+                ( long [osstr|timeout|]
+                    <> metavar [osstr|INT|]
+                    <> help [osstr|Whether to time out|]
                 )
 
     parseSystemGroup2 =
-      parserOptionGroup "System" $
+      parserOptionGroup [osstr|System|] $
         SystemGroup2
           <$> switch
-            ( long "sysFlag"
-                <> help "Some flag"
+            ( long [osstr|sysFlag|]
+                <> help [osstr|Some flag|]
             )
 
     parseLogGroup2 =
-      parserOptionGroup "Logging" $
+      parserOptionGroup [osstr|Logging|] $
         LogGroup2
             <$>
               strOption
-                ( long "log-namespace"
-                    <> metavar "STR"
-                    <> help "Log namespace"
+                ( long [osstr|log-namespace|]
+                    <> metavar [osstr|STR|]
+                    <> help [osstr|Log namespace|]
                 )
 
     parseVerbosity =
       option
         auto
-        ( long "verbosity"
-            <> short 'v'
-            <> help "Console verbosity"
+        ( long [osstr|verbosity|]
+            <> short (OsString.unsafeFromChar 'v')
+            <> help [osstr|Console verbosity|]
         )
 
-    parseCmd = argument str (metavar "Command")
+    parseCmd = argument str (metavar [osstr|Command|])
 
 opts :: ParserInfo Sample
 opts =
   info
     (sample <**> helper)
     ( fullDesc
-        <> progDesc "Duplicate consecutive groups consolidated"
-        <> header "parser_group.duplicates - a test for optparse-applicative"
+        <> progDesc [osstr|Duplicate consecutive groups consolidated|]
+        <> header [osstr|parser_group.duplicates - a test for optparse-applicative|]
     )
 
 main :: IO ()

@@ -1,10 +1,15 @@
 {-# LANGUAGE Arrows, CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Examples.Cabal where
 
 import Options.Applicative
 import Options.Applicative.Arrows
 
 import Data.Monoid
+
+import System.OsString (OsString, osstr)
+import qualified System.OsString as OsString
+import System.OsPath (OsPath)
 
 #if __GLASGOW_HASKELL__ <= 702
 (<>) :: Monoid a => a -> a -> a
@@ -32,11 +37,11 @@ data InstallOpts = InstallOpts
 
 data ConfigureOpts = ConfigureOpts
   { configTests :: Bool
-  , configFlags :: [String] }
+  , configFlags :: [OsString] }
   deriving Show
 
 data BuildOpts = BuildOpts
-  { buildDir :: FilePath }
+  { buildDir :: OsPath }
   deriving Show
 
 
@@ -44,27 +49,27 @@ parser :: Parser Args
 parser = runA $ proc () -> do
   opts <- asA commonOpts -< ()
   cmds <- (asA . hsubparser)
-            ( command "install"
+            ( command [osstr|install|]
               (info installParser
-                    (progDesc "Installs a list of packages"))
-           <> command "update"
+                    (progDesc [osstr|Installs a list of packages|]))
+           <> command [osstr|update|]
               (info updateParser
-                    (progDesc "Updates list of known packages"))
-           <> command "configure"
+                    (progDesc [osstr|Updates list of known packages|]))
+           <> command [osstr|configure|]
               (info configureParser
-                    (progDesc "Prepare to build the package"))
-           <> command "build"
+                    (progDesc [osstr|Prepare to build the package|]))
+           <> command [osstr|build|]
               (info buildParser
-                    (progDesc "Make this package ready for installation")) ) -< ()
-  A (simpleVersioner "0.0.0") >>> A helper -< Args opts cmds
+                    (progDesc [osstr|Make this package ready for installation|])) ) -< ()
+  A (simpleVersioner [osstr|0.0.0|]) >>> A helper -< Args opts cmds
 
 commonOpts :: Parser CommonOpts
 commonOpts = CommonOpts
   <$> option auto
-      ( short 'v'
-     <> long "verbose"
-     <> metavar "LEVEL"
-     <> help "Set verbosity to LEVEL"
+      ( short (OsString.unsafeFromChar 'v')
+     <> long [osstr|verbose|]
+     <> metavar [osstr|LEVEL|]
+     <> help [osstr|Set verbosity to LEVEL|]
      <> value 0 )
 
 installParser :: Parser Command
@@ -75,8 +80,8 @@ installParser = runA $ proc () -> do
 
 installOpts :: Parser InstallOpts
 installOpts = runA $ proc () -> do
-  reinst <- asA (switch (long "reinstall")) -< ()
-  force <- asA (switch (long "force-reinstall")) -< ()
+  reinst <- asA (switch (long [osstr|reinstall|])) -< ()
+  force <- asA (switch (long [osstr|force-reinstall|])) -< ()
   returnA -< InstallOpts
              { instReinstall = reinst
              , instForce = force }
@@ -92,13 +97,13 @@ configureParser = runA $ proc () -> do
 configureOpts :: Parser ConfigureOpts
 configureOpts = runA $ proc () -> do
   tests <- (asA . switch)
-             ( long "enable-tests"
-            <> help "Enable compilation of test suites" ) -< ()
+             ( long [osstr|enable-tests|]
+            <> help [osstr|Enable compilation of test suites|] ) -< ()
   flags <- (asA . many . strOption)
-             ( short 'f'
-            <> long "flags"
-            <> metavar "FLAGS"
-            <> help "Enable the given flag" ) -< ()
+             ( short (OsString.unsafeFromChar 'f')
+            <> long [osstr|flags|]
+            <> metavar [osstr|FLAGS|]
+            <> help [osstr|Enable the given flag|] ) -< ()
   returnA -< ConfigureOpts tests flags
 
 buildParser :: Parser Command
@@ -109,14 +114,14 @@ buildParser = runA $ proc () -> do
 buildOpts :: Parser BuildOpts
 buildOpts = runA $ proc () -> do
   bdir <- (asA . strOption)
-            ( long "builddir"
-           <> metavar "DIR"
-           <> value "dist" ) -< ()
+            ( long [osstr|builddir|]
+           <> metavar [osstr|DIR|]
+           <> value [osstr|dist|] ) -< ()
   returnA -< BuildOpts bdir
 
 pinfo :: ParserInfo Args
 pinfo = info parser
-  ( progDesc "An example modelled on cabal" )
+  ( progDesc [osstr|An example modelled on cabal|] )
 
 main :: IO ()
 main = do

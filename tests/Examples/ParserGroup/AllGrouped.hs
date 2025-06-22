@@ -1,9 +1,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Examples.ParserGroup.AllGrouped (opts, main) where
 
 import Data.Semigroup ((<>))
 import Options.Applicative
+
+import System.OsString (OsString, osstr)
 
 -- Tests the help page when every option belongs to some group i.e. there are
 -- no top-level options. Notice we put the helper (<**> helper) __inside__
@@ -14,7 +17,7 @@ import Options.Applicative
 -- and should not be rendered with the Options.
 
 data LogGroup = LogGroup
-  { logPath :: Maybe String,
+  { logPath :: Maybe OsString,
     logVerbosity :: Maybe Int
   }
   deriving (Show)
@@ -28,7 +31,7 @@ data SystemGroup = SystemGroup
 data Sample = Sample
   { logGroup :: LogGroup,
     systemGroup :: SystemGroup,
-    cmd :: String
+    cmd :: OsString
   }
   deriving (Show)
 
@@ -41,48 +44,48 @@ sample =
 
   where
     parseLogGroup =
-      parserOptionGroup "Logging" $
+      parserOptionGroup [osstr|Logging|] $
         LogGroup
           <$> optional
             ( strOption
-                ( long "file-log-path"
-                    <> metavar "PATH"
-                    <> help "Log file path"
+                ( long [osstr|file-log-path|]
+                    <> metavar [osstr|PATH|]
+                    <> help [osstr|Log file path|]
                 )
             )
           <*> optional
             ( option
                 auto
-                ( long "file-log-verbosity"
-                    <> metavar "INT"
-                    <> help "File log verbosity"
+                ( long [osstr|file-log-verbosity|]
+                    <> metavar [osstr|INT|]
+                    <> help [osstr|File log verbosity|]
                 )
             )
             <**> helper
 
     parseSystemGroup =
-      parserOptionGroup "System Options" $
+      parserOptionGroup [osstr|System Options|] $
         SystemGroup
           <$> switch
-            ( long "poll"
-                <> help "Whether to poll"
+            ( long [osstr|poll|]
+                <> help [osstr|Whether to poll|]
             )
           <*> option
                 auto
-                ( long "timeout"
-                    <> metavar "INT"
-                    <> help "Whether to time out"
+                ( long [osstr|timeout|]
+                    <> metavar [osstr|INT|]
+                    <> help [osstr|Whether to time out|]
                 )
 
-    parseCmd = argument str (metavar "Command")
+    parseCmd = argument str (metavar [osstr|Command|])
 
 opts :: ParserInfo Sample
 opts =
   info
     sample
     ( fullDesc
-        <> progDesc "Every option is grouped"
-        <> header "parser_group.all_grouped - a test for optparse-applicative"
+        <> progDesc [osstr|Every option is grouped|]
+        <> header [osstr|parser_group.all_grouped - a test for optparse-applicative|]
     )
 
 main :: IO ()

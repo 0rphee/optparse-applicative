@@ -1,14 +1,18 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE QuasiQuotes #-}
 
 module Examples.ParserGroup.Nested (opts, main) where
 
 import Data.Semigroup ((<>))
 import Options.Applicative
 
+import System.OsString (OsString, osstr)
+import qualified System.OsString as OsString
+
 -- Nested groups. Demonstrates that group can nest.
 
 data LogGroup = LogGroup
-  { logPath :: Maybe String,
+  { logPath :: Maybe OsString,
     systemGroup :: SystemGroup,
     logVerbosity :: Maybe Int
   }
@@ -22,23 +26,23 @@ data SystemGroup = SystemGroup
   deriving (Show)
 
 data Nested2 = Nested2
-  { nested2Str :: String,
+  { nested2Str :: OsString,
     nested3 :: Nested3
   }
   deriving (Show)
 
 newtype Nested3 = Nested3
-  { nested3Str :: String
+  { nested3Str :: OsString
   }
   deriving (Show)
 
 data Sample = Sample
-  { hello :: String,
+  { hello :: OsString,
     logGroup :: LogGroup,
     quiet :: Bool,
     verbosity :: Int,
     group2 :: (Int, Int),
-    cmd :: String
+    cmd :: OsString
   }
   deriving (Show)
 
@@ -55,15 +59,15 @@ sample =
   where
     parseHello =
       strOption
-        ( long "hello"
-            <> metavar "TARGET"
-            <> help "Target for the greeting"
+        ( long [osstr|hello|]
+            <> metavar [osstr|TARGET|]
+            <> help [osstr|Target for the greeting|]
         )
 
     parseLogGroup =
-      parserOptionGroup "First group" $
-      parserOptionGroup "Second group" $
-      parserOptionGroup "Logging" $
+      parserOptionGroup [osstr|First group|] $
+      parserOptionGroup [osstr|Second group|] $
+      parserOptionGroup [osstr|Logging|] $
         LogGroup
           <$> parseLogPath
           <*> parseSystemGroup
@@ -73,64 +77,64 @@ sample =
         parseLogPath =
           optional
             ( strOption
-                ( long "file-log-path"
-                    <> metavar "PATH"
-                    <> help "Log file path"
+                ( long [osstr|file-log-path|]
+                    <> metavar [osstr|PATH|]
+                    <> help [osstr|Log file path|]
                 )
             )
         parseLogVerbosity =
           optional
             ( option
                 auto
-                ( long "file-log-verbosity"
-                    <> metavar "INT"
-                    <> help "File log verbosity"
+                ( long [osstr|file-log-verbosity|]
+                    <> metavar [osstr|INT|]
+                    <> help [osstr|File log verbosity|]
                 )
             )
 
     parseQuiet =
       switch
-        ( long "quiet"
-            <> short 'q'
-            <> help "Whether to be quiet"
+        ( long [osstr|quiet|]
+            <> short (OsString.unsafeFromChar 'q')
+            <> help [osstr|Whether to be quiet|]
         )
 
     parseSystemGroup =
-      parserOptionGroup "System Options" $
+      parserOptionGroup [osstr|System Options|] $
         SystemGroup
-          <$> switch (long "poll" <> help "Whether to poll")
+          <$> switch (long [osstr|poll|] <> help [osstr|Whether to poll|])
           <*> parseNested2
-          <*> option auto (long "timeout" <> metavar "INT" <> help "Whether to time out")
+          <*> option auto (long [osstr|timeout|] <> metavar [osstr|INT|] <> help [osstr|Whether to time out|])
 
     parseNested2 =
-      parserOptionGroup "Nested2" $
+      parserOptionGroup [osstr|Nested2|] $
         Nested2
-          <$> option auto (long "double-nested" <> metavar "STR" <> help "Some nested option")
+          <$> option str (long [osstr|double-nested|] <> metavar [osstr|STR|] <> help [osstr|Some nested option|])
           <*> parseNested3
 
     parseNested3 =
-      parserOptionGroup "Nested3" $
-        Nested3 <$> option auto (long "triple-nested" <> metavar "STR" <> help "Another option")
+      parserOptionGroup [osstr|Nested3|] $
+        Nested3 <$> option str (long [osstr|triple-nested|] <> metavar [osstr|STR|] <> help [osstr|Another option|])
 
     parseGroup2 :: Parser (Int, Int)
-    parseGroup2 = parserOptionGroup "Group 2" $
+    parseGroup2 = parserOptionGroup [osstr|Group 2|] $
       (,)
-        <$> parserOptionGroup "G 2.1" (option auto (long "one" <> help "Option 1"))
-        <*> parserOptionGroup "G 2.2" (option auto (long "two" <> help "Option 2"))
+        <$> parserOptionGroup [osstr|G 2.1|] (option auto (long [osstr|one|] <> help [osstr|Option 1|]))
+        <*> parserOptionGroup [osstr|G 2.2|] (option auto (long [osstr|two|] <> help [osstr|Option 2|]))
 
     parseVerbosity =
-      option auto (long "verbosity" <> short 'v' <> help "Console verbosity")
+      option auto (long [osstr|verbosity|] <> short (OsString.unsafeFromChar 'v') <> help [osstr|Console verbosity|])
 
     parseCmd =
-      argument str (metavar "Command")
+      argument str (metavar [osstr|Command|])
 
 opts :: ParserInfo Sample
 opts =
   info
     (sample <**> helper)
     ( fullDesc
-        <> progDesc "Nested parser groups"
-        <> header "parser_group.nested - a test for optparse-applicative"
+        <> progDesc [osstr|Nested parser groups|]
+        <> header [osstr|parser_group.nested - a test for optparse-applicative|]
     )
 
 main :: IO ()

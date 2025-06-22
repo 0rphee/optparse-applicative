@@ -27,9 +27,9 @@ import Control.Monad (void)
 import Data.Monoid
 import Data.Foldable (traverse_)
 import Prelude
-import System.Environment (getArgs, getProgName)
+import System.Environment (getProgName)
 import System.Exit (exitSuccess, exitWith, ExitCode(..))
-import System.IO (hPutStrLn, stderr)
+import System.IO (stderr)
 
 import Options.Applicative.BashCompletion
 import Options.Applicative.Builder

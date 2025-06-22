@@ -156,6 +156,9 @@ test-suite tests
 
   build-depends:       base
                      , optparse-applicative
+                     , os-string
+                     , os-string-io
+                     , filepath
                      , QuickCheck                      >= 2.8 && < 2.16
 
   if !impl(ghc >= 8)

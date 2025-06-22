@@ -1,12 +1,17 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE QuasiQuotes #-}
 module Examples.Hello where
 
 import Options.Applicative
 import Data.Semigroup ((<>))
 import Control.Monad (replicateM_)
 
+import System.OsString (OsString, osstr)
+import qualified System.OsString.IO as OIO
+import qualified System.OsString as OsString
+
 data Sample = Sample
-  { hello  :: String
+  { hello  :: OsString
   , quiet  :: Bool
   , repeat :: Int }
   deriving Show
@@ -14,19 +19,19 @@ data Sample = Sample
 sample :: Parser Sample
 sample = Sample
       <$> strOption
-          ( long "hello"
-         <> metavar "TARGET"
-         <> help "Target for the greeting" )
+          ( long [osstr|hello|]
+         <> metavar [osstr|TARGET|]
+         <> help [osstr|Target for the greeting|] )
       <*> switch
-          ( long "quiet"
-         <> short 'q'
-         <> help "Whether to be quiet" )
+          ( long [osstr|quiet|]
+         <> short (OsString.unsafeFromChar 'q')
+         <> help [osstr|Whether to be quiet|] )
       <*> option auto
-          ( long "repeat"
-         <> help "Repeats for greeting"
+          ( long [osstr|repeat|]
+         <> help [osstr|Repeats for greeting|]
          <> showDefault
          <> value 1
-         <> metavar "INT" )
+         <> metavar [osstr|INT|] )
 
 main :: IO ()
 main = greet =<< execParser opts
@@ -34,9 +39,9 @@ main = greet =<< execParser opts
 opts :: ParserInfo Sample
 opts = info (sample <**> helper)
   ( fullDesc
-  <> progDesc "Print a greeting for TARGET"
-  <> header "hello - a test for optparse-applicative" )
+  <> progDesc [osstr|Print a greeting for TARGET|]
+  <> header [osstr|hello - a test for optparse-applicative|] )
 
 greet :: Sample -> IO ()
-greet (Sample h False n) = replicateM_ n . putStrLn $ "Hello, " ++ h
+greet (Sample h False n) = replicateM_ n . OIO.putStrLn $ [osstr|Hello, |] <> h
 greet _ = return ()
