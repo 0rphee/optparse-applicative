@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 
 module Examples.ParserGroup.CommandGroups (opts, main) where
 
@@ -8,7 +9,7 @@ import Data.Semigroup ((<>))
 import Options.Applicative
 
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import qualified System.OsString.IO as OIO
 
 data LogGroup = LogGroup

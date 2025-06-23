@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 -- | You don't need to import this module to enable bash completion.
 --
 -- See
@@ -14,6 +15,7 @@ module Options.Applicative.BashCompletion
 
 import Control.Applicative
 import Prelude
+import Data.Foldable ( asum )
 import Data.Maybe ( fromMaybe, listToMaybe )
 
 import Options.Applicative.Builder
@@ -23,7 +25,7 @@ import Options.Applicative.Types
 import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 -- | Provide basic or rich command completions
 data Richness

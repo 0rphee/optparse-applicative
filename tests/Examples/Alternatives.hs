@@ -1,8 +1,9 @@
+{-# LANGUAGE PackageImports #-}
 module Examples.Alternatives where
 
 import Options.Applicative
 
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 data Value = A | B
   deriving (Eq, Show)

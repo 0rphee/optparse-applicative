@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module Options.Applicative.Help.Types (
     ParserHelp (..)
   , renderHelp
@@ -10,7 +11,7 @@ import Options.Applicative.Help.Chunk
 import Options.Applicative.Help.Pretty
 import System.OsString (OsString)
 import System.IO.Unsafe (unsafePerformIO)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 data ParserHelp = ParserHelp
   { helpError :: Chunk Doc

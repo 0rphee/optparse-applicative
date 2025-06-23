@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module Options.Applicative.Builder.Internal (
   -- * Internals
   Mod(..),
@@ -32,7 +33,7 @@ import Prelude
 import Options.Applicative.Common
 import Options.Applicative.Types
 import System.OsString (OsString)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 data OptionFields a = OptionFields
   { optNames :: [OptName]

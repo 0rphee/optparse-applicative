@@ -2,7 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE QuasiQuotes            #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
+{-# LANGUAGE PackageImports            #-}
 module Main where
 
 import qualified Examples.Hello as Hello
@@ -19,7 +19,7 @@ import qualified Examples.ParserGroup.Duplicates as ParserGroup.Duplicates
 import qualified Examples.ParserGroup.Nested as ParserGroup.Nested
 
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 import           Control.Applicative
 import           Control.Monad

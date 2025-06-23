@@ -123,7 +123,7 @@ import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
 import Options.Applicative.Internal (mapParserOptions)
 
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import System.IO.Unsafe (unsafePerformIO)
 import System.OsString (OsString, osstr, OsChar)
 

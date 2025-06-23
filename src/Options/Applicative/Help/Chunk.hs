@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 module Options.Applicative.Help.Chunk
   ( Chunk(..)
   , chunked
@@ -22,7 +23,7 @@ import Prelude
 
 import Options.Applicative.Help.Pretty
 import System.OsString (OsString)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import Data.Char (isSpace)
 import System.IO.Unsafe (unsafePerformIO)
 

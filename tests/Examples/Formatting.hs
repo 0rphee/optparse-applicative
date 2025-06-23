@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 module Examples.Formatting where
 
 import           Data.Monoid
@@ -6,7 +7,7 @@ import           Options.Applicative
 import           Prelude
 
 import System.OsString (osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 opts :: Parser Int
 opts = option auto $ mconcat

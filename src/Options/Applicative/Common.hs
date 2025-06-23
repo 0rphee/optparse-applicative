@@ -67,7 +67,7 @@ import Options.Applicative.Internal
 import Options.Applicative.Types
 
 import qualified "os-string" System.OsString as OsString
-import System.OsString (osstr, OsString)
+import "os-string" System.OsString (osstr, OsString)
 
 showOption :: OptName -> OsString
 showOption (OptLong n) = [osstr|--|] <> n

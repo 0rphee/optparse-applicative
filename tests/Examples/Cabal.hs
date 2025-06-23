@@ -1,5 +1,6 @@
 {-# LANGUAGE Arrows, CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 module Examples.Cabal where
 
 import Options.Applicative
@@ -8,7 +9,7 @@ import Options.Applicative.Arrows
 import Data.Monoid
 
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import System.OsPath (OsPath)
 
 #if __GLASGOW_HASKELL__ <= 702

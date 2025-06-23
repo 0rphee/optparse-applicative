@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 module Options.Applicative.Extra (
   -- * Extra parser utilities
   --
@@ -42,7 +43,7 @@ import Options.Applicative.Types
 import qualified System.Process.Environment.OsString  as EOS
 import System.OsPath (OsPath)
 import System.OsString (osstr, OsString)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import qualified System.OsString.IO as OsString.IO
 import System.IO.Unsafe (unsafePerformIO)
 

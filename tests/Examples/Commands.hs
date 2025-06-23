@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 module Examples.Commands where
 
 import Data.List
@@ -7,7 +8,7 @@ import Data.Monoid
 import Options.Applicative
 
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import qualified System.OsString.IO as OIO
 
 #if __GLASGOW_HASKELL__ <= 702

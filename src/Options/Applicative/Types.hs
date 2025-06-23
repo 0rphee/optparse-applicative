@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, Rank2Types, ExistentialQuantification, QuasiQuotes #-}
+{-# LANGUAGE CPP, Rank2Types, ExistentialQuantification, QuasiQuotes, PackageImports #-}
 module Options.Applicative.Types (
   ParseError(..),
   ParserInfo(..),
@@ -65,7 +65,7 @@ import Options.Applicative.Help.Types
 import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
 import System.OsPath (OsPath, OsString, OsChar)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import System.IO.Unsafe (unsafePerformIO)
 import System.OsString (osstr)
 

@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 module Examples.Hello where
 
 import Options.Applicative
@@ -8,7 +9,7 @@ import Control.Monad (replicateM_)
 
 import System.OsString (OsString, osstr)
 import qualified System.OsString.IO as OIO
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 data Sample = Sample
   { hello  :: OsString

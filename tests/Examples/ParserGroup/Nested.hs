@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 
 module Examples.ParserGroup.Nested (opts, main) where
 
@@ -7,7 +8,7 @@ import Data.Semigroup ((<>))
 import Options.Applicative
 
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 -- Nested groups. Demonstrates that group can nest.
 

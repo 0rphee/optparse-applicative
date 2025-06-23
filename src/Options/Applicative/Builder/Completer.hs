@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 
 module Options.Applicative.Builder.Completer
   ( Completer
@@ -20,7 +21,7 @@ import System.Process (readProcess)
 #endif
 
 import Options.Applicative.Types
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import System.OsString (OsString, osstr)
 import System.IO.Unsafe (unsafePerformIO)
 

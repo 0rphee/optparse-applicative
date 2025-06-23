@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 module Options.Applicative.Help.Core (
   cmdDesc,
   briefDesc,
@@ -37,7 +38,7 @@ import Options.Applicative.Types
 import Options.Applicative.Help.Pretty
 import Options.Applicative.Help.Chunk
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 import System.IO.Unsafe (unsafePerformIO)
 
 -- | Style for rendering an option.

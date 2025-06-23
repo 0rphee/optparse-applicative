@@ -1,5 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE PackageImports #-}
 
 module Examples.ParserGroup.Duplicates (opts, main) where
 
@@ -7,7 +8,7 @@ import Data.Semigroup ((<>))
 import Options.Applicative
 
 import System.OsString (OsString, osstr)
-import qualified System.OsString as OsString
+import qualified "os-string" System.OsString as OsString
 
 -- NOTE: This is the same structure as ParserGroup.Basic __except__
 -- we have two (non-consecutive) "Logging" groups and two (consecutive)
